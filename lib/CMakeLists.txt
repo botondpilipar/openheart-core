@@ -1,3 +1,0 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 3.28)
-
-include_directories(${GLIB_INCLUDE_DIRS})
