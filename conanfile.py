@@ -2,12 +2,11 @@ from conan import ConanFile
 from conan.tools.cmake import cmake_layout
 
 class OpenHeartDependencies(ConanFile):
-    settings = "os", "compiler", "arch"
-    build_type = "Debug"
+    settings = "os", "compiler", "arch", "build_type"
     generators = "CMakeDeps", "CMakeToolchain"
-    options = {
-        "glib/2.78.3:shared": True,
-        "libcurl/8.6.0:shared": True
+    default_options = {
+        "libcurl*:shared": True,
+        "glib*:shared": True
     }
     
     def requirements(self):
