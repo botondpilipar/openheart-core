@@ -23,7 +23,7 @@ subdir('test')
 executable('openheart-core',
            'main.c',
            install : false,
-           dependencies : [libcurl_dep, glib_dep, liblogc_dep],
+           dependencies : [libcurl_dep, glib_dep, liblogc_dep, libkernel_dep],
            include_directories : lib_incdir,
            c_pch : join_paths(pchdir, 'core_pch.h')
 )

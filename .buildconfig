@@ -2,7 +2,7 @@
 name=Default
 runtime=host
 toolchain=default
-config-opts=--preset=conan-debug
+config-opts=
 run-opts=
 prefix=/home/botondpilipar/.cache/gnome-builder/install/openheart-core/host
 app-id=org.gnome.openheart
