@@ -1,3 +1,6 @@
+#define G_LOG_USE_STRUCTURED
+#define G_LOG_DOMAIN "libopenheart-kernel"
+
 #include <kernel_attributes.h>
 #include <glib.h>
 

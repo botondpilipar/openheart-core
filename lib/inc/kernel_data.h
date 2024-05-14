@@ -34,8 +34,9 @@ typedef struct KernelData
 } KernelData;
 
 void kernel_data_init(KernelData* data);
-KernelData* kernel_data_new(void);
-bool kernel_data_parse(KernelAttributes* attr, SystemInfo* info)
+KernelData* kernel_data_new();
+bool kernel_data_parse(KernelAttributes* attr, SystemInfo* info);
+void kernel_data_free(KernelData* data);
 
 typedef enum KernelFeatures
 {
@@ -43,7 +44,7 @@ typedef enum KernelFeatures
     PREEMPTIBLE = (1 << 1),
     REALTIME = (1 << 2),
     GENERIC = (1 << 3),
-    KERNEL_FEATURES_MAX
+    KERNEL_FEATURES_MAX = (1 << 4)
 } KernelFeatures;
 
 G_END_DECLS

@@ -10,7 +10,7 @@ sources = files(
     'src/log.c'
 )
 
-liblogc = shared_library(
+liblogc = static_library(
   'logc',
   sources,
   include_directories : logc_incdir,

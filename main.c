@@ -1,15 +1,12 @@
 #include <glib.h>
-#include <stdio.h>
-#include <curl/curl.h>
-#include <kernel_attributes.h>
+#include <stdbool.h>
+#include <main_process.h>
+
+const gchar *const debug_comains = "all";
 
 int main(int argc, char** argv)
 {
-    KernelAttributes attr;
-    init_kernel_attributes(&attr, true);
-    g_autoptr(GString) output = g_string_new(NULL);
-
-    print_kernel_attributes(&attr, output);
-    fputs(output->str, stdout);
-    return 0;
+    g_log_set_debug_enabled(true);
+    g_log_writer_default_set_debug_domains(&debug_comains);
+    return openheart_core_main(argc, argv);
 }

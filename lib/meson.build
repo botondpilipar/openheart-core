@@ -1,12 +1,25 @@
 
 lib_incdir = include_directories('inc')
 
-libkenel_headers = files(
-    'inc/kernel_attributes.h'
+libkernel_headers = files(
+    'inc/kernel_attributes.h',
+    'inc/kernel_data.h',
+    'inc/kp_notify.h',
+    'inc/array_alg.h',
+    'inc/func.h',
+    'inc/kp_types.h',
+    'inc/kp_notify_handler.h',
+    'inc/kp_notify.h',
 )
 
 sources = files(
     'src/kernel_attributes.c',
+    'src/kernel_data.c',
+    'src/kp_notify.c',
+    'src/func.c',
+    'src/array_alg.c',
+    'src/kp_notify.c',
+    'src/kp_notify_handler.c',
 )
 
 libkernel = shared_library(
@@ -14,6 +27,7 @@ libkernel = shared_library(
     sources,
     dependencies:  [glib_dep],
     include_directories: lib_incdir,
+    extra_files: libkernel_headers,
     install : true
 )
 
