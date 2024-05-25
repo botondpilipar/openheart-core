@@ -31,6 +31,12 @@ executable('openheart-core',
            c_pch : join_paths(pchdir, 'core_pch.h')
 )
 
+build_options = meson.build_options()
 devenv = environment()
 devenv.set('PLUGINS_PATH', meson.current_build_dir())
+
+if build_options.contains('debug')
+  devenv.set('G_MESSAGES_DEBUG', 'all')
+endif
+
 meson.add_devenv(devenv)

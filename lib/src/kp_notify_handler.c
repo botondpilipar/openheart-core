@@ -9,15 +9,18 @@ static const uint32_t DISPATCHED_EVENTS[] = {
         IN_IGNORED, IN_ISDIR
 };
 
-INotifyCallback kp_notify_select(kp_notify_device* device, uint32_t bitmask)
+void kp_notify_invoke_callbacks(kp_notify_device* device, uint32_t bitmask, const struct inotify_event* event)
 {
-    for(uint32_t i = 0; i<sizeof(DISPATCHED_EVENTS); i++) {
-        if(bitmask & DISPATCHED_EVENTS[i]) {
-            INotifyCallback callback = (INotifyCallback)g_hash_table_lookup(device->gio_watch_callbacks, &DISPATCHED_EVENTS[i]);
-            return callback;
+    GPtrArray* keys = g_hash_table_get_keys_as_ptr_array(device->gio_watch_callbacks);
+
+    for(size_t i = 0; i<keys->len; i++) {
+        uint32_t watch_mask = *(uint32_t*)g_ptr_array_index(keys, i);
+
+        if(bitmask & watch_mask) {
+            INotifyCallback cb = (INotifyCallback)g_hash_table_lookup(device->gio_watch_callbacks, &watch_mask);
+            cb(event->name, event->wd, event->mask, event->cookie);
         }
     }
-    return NULL;
 }
 
 int kp_notify_handle_default(GIOChannel *gio, GIOCondition /* unused */, gpointer data)
@@ -33,22 +36,23 @@ int kp_notify_handle_default(GIOChannel *gio, GIOCondition /* unused */, gpointe
     }
 
     size_t event_number = chars_read / sizeof(struct inotify_event);
-    struct inotify_event** events = (struct inotify_event**)buffer;
+    g_autoptr(GArray) events = g_array_new_take(buffer, chars_read, true, sizeof(struct inotify_event));
     kp_notify_device* device = (kp_notify_device*)data;
 
-    for(size_t i = 0; i<event_number; i++) {
-        struct inotify_event* next_event = events[i];
-        uint32_t bitmask = next_event->mask;
-        INotifyCallback callback = kp_notify_select(device, bitmask);
-
-        if(callback == NULL) {
-            g_info("No callback found for inotify event bitmask: %u", bitmask);
-            continue;
-        }
-
-        if(!callback(next_event->name, next_event->wd, next_event->mask, next_event->cookie)) {
-            return false;
-        }
+    for(size_t i = 0; i<events->len; i++) {
+        struct inotify_event* event = &g_array_index(events, struct inotify_event, i);
+        kp_notify_invoke_callbacks(device, event->mask, event);
     }
     return true;
+}
+
+void on_kp_notify_leaf_destoryed_default(int watch_desc)
+{
+    int notification_device = inotify_init();
+    inotify_rm_watch(notification_device, watch_desc);
+}
+
+void on_kp_notify_leaf_destroyed(kp_notify_device* device, int fd)
+{
+    g_hash_table_remove(device->notify_watches, &fd);
 }

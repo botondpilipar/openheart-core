@@ -6,14 +6,22 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <string.h>
+#include <stdio.h>
 #include <unistd.h>
-
+#include <string.h>
 #include <func.h>
 #include <array_alg.h>
 #include <kp_notify.h>
 #include <kp_notify_handler.h>
 
 #define FILE_CONTENT_MAX_LINES 1
+
+KPNotifyCallback kp_notify_leaf_destroyed_cb = on_kp_notify_leaf_destoryed_default;
+
+void kp_notify_leaf_destroyed_generic(gpointer data) {
+    int fd = *(int*)data;
+    kp_notify_leaf_destroyed_cb(fd);
+}
 
 /* Kernel Parameter Leaf Functions */
 
@@ -31,93 +39,133 @@ void follow_leaf_link(kp_notify_leaf* node)
 
     if(g_strcmp0(next_name, node->filepath) != 0) {
         node->filepath = strcpy(next_name, node->filepath);
-        node->nodetype = get_node_type(node->filepath);
+        struct stat path_stat; 
+        stat(node->filepath, &path_stat);
+        node->nodetype = get_node_type(&path_stat);
     }
 }
 
-node_type get_node_type(const gchar* path)
+node_type get_node_type(const struct stat* stat_entry)
 {
-    GFileTest file_test = G_FILE_TEST_IS_REGULAR;
-    GFileTest dir_test = G_FILE_TEST_IS_DIR;
-    GFileTest link_test = G_FILE_TEST_IS_SYMLINK;
+    char stat_text[64];
+    char rule[64];
+    node_type nodetype = OTHER;
 
-    if(g_file_test(path, file_test)) {
-        return FILE;
-    } else if(g_file_test(path, dir_test)) {
-        return DIRECTORY;
-    } else if(g_file_test(path, link_test)) {
-        return SOFTLINK;
+    switch (stat_entry->st_mode & S_IFMT) {
+        case S_IFLNK:  
+            strcpy(stat_text, "symlink");
+            strcpy(rule, "classifying as SOFTLINK");
+            nodetype = SOFTLINK;                
+            break;
+        case S_IFREG:  
+            strcpy(stat_text, "regular file");
+            strcpy(rule, "classifying as FILE");
+            nodetype = REGULAR_FILE;
+            break;
+        case S_IFDIR:
+            strcpy(stat_text, "directory");
+            strcpy(rule, "classifying as DIRECTORY");
+            nodetype = DIRECTORY;
+            break;
+        case S_IFBLK:  
+            strcpy(stat_text, "block device");
+            strcpy(rule, "ignoring");
+            break;
+        case S_IFCHR:  
+            strcpy(stat_text, "character device");
+            strcpy(rule, "ignoring");    
+            break;
+        case S_IFIFO:  
+            strcpy(stat_text, "FIFO/pipe");
+            strcpy(rule, "ignoring");            
+            break;
+        case S_IFSOCK: 
+            strcpy(stat_text, "socket");
+            strcpy(rule, "ignoring");
+            break;
+        default:       
+            sprintf(stat_text, "unknown stat %u", stat_entry->st_mode & S_IFMT); 
+            strcpy(rule, "classifying as OTHER");
+            nodetype = OTHER;               
+            break;
     }
+
+    g_info("Encountered file system entry of type '%s'. Resulting action: %s", stat_text, rule);
+    return nodetype;
+}
+
+bool kp_notify_leaf_read_content(kp_notify_leaf* node, int descriptor)
+{
+    g_autoptr(GIOChannel)file_channel = g_io_channel_unix_new(descriptor);
+    gsize chars_read = 0;
     
-    return OTHER;
+    // Kernel Parameter file is expected to have a single line of NT_FILE_LINE_MAX_LENGTH chars at max
+    gchar* content = g_new(gchar, KP_FILE_LINE_MAX_LENGTH);
+    g_autoptr(GError) file_errors = NULL;
+
+
+    GIOStatus status = g_io_channel_read_chars(file_channel,
+                                            content,
+                                            KP_FILE_LINE_MAX_LENGTH,
+                                            &chars_read,
+                                            &file_errors);
+    if(status != G_IO_STATUS_NORMAL || chars_read == 0)
+    {
+        g_free(content);
+        g_error("Error while reading file %s - %s", node->filepath, file_errors->message);
+        g_error_free(file_errors);
+        return false;
+    }
+    g_strstrip(content);
+    node->content = content;
+    return true;
 }
 
-node_type get_followed_node_type(const gchar* path, gchar* last_pointed)
+bool kp_notify_leaf_is_watched(const kp_notify_leaf* leaf)
 {
-    GFileTest link_test = G_FILE_TEST_IS_SYMLINK;
-    g_autofree gchar* pointed_name = g_strdup(path);
-    while(g_file_test(pointed_name, link_test)) {
-        g_autofree gchar* filename = pointed_name;
-        pointed_name = g_file_read_link(filename, NULL);
-    }
-    if(last_pointed != NULL) {
-        strcpy(last_pointed, pointed_name);
-    }
-    return get_node_type(pointed_name);
-}
-
-node_type get_posix_node_type(const gchar* path)
-{
-    
+    return leaf->watch_descriptor != -1;
 }
 
 void kp_notify_leaf_init(kp_notify_leaf* node, const gchar* path, bool follow_symlinks)
 {
-    struct stat path_stat;
-
-    node_type nodetype = get_node_type(path);
     node->filepath = g_strdup(path);
+    node->follow_symlinks = follow_symlinks;
+    node->watch_descriptor = -1;
+
+    if(!access(path, F_OK | R_OK | X_OK)) {
+        g_warning("Path %s does not exist, or openheart has no READ and EXECUTE rights. Returning.");
+        return;
+    }
+
+    struct stat path_stat;
+    int stat_success;
+    int descriptor = open(node->filepath, O_RDONLY);
+
+    if(descriptor == -1) {
+        g_warning("Cannot open file %s. Returned with errno: '%d', and message '%s'", path, errno, strerror(errno));
+    }
+
+    // We assume, if 'open' succeeded, stat should also succeed
+    if(follow_symlinks) {
+        stat_success = fstat(descriptor, &path_stat);
+    } else {
+        stat_success = lstat(path, &path_stat);
+    }
+
+    node->last_modified = path_stat.st_mtime;
+
+    node_type nodetype = get_node_type(&path_stat);
     node->nodetype = nodetype;
 
-    if(nodetype == SOFTLINK && !follow_symlinks) {
-        lstat(path, &path_stat);
-    } else if(nodetype == SOFTLINK && follow_symlinks) {
+    if(nodetype == SOFTLINK && follow_symlinks) {
         follow_leaf_link(node);
     }
 
-    int path_descriptor = open(node->filepath, O_RDONLY | O_NONBLOCK);
-    fstat(path_descriptor, &path_stat);
-
-    if(nodetype != DIRECTORY) {
-        int file_descriptor = open(node->filepath, O_RDONLY);
-        g_autoptr(GIOChannel)file_channel = g_io_channel_unix_new(file_descriptor);
-        gsize chars_read = 0;
-        
-        // Kernel Parameter file is expected to have a single line of NT_FILE_LINE_MAX_LENGTH chars at max
-        gchar* content = g_new(gchar, KP_FILE_LINE_MAX_LENGTH);
-        g_autoptr(GError) file_errors = NULL;
-
-
-        GIOStatus status = g_io_channel_read_chars(file_channel,
-                                                content,
-                                                KP_FILE_LINE_MAX_LENGTH,
-                                                &chars_read,
-                                                &file_errors);
-        if(status != G_IO_STATUS_NORMAL || chars_read == 0)
-        {
-            g_free(content);
-            g_error("Error while reading file %s - %s", path, file_errors->message);
-            g_error_free(file_errors);
-            return;
-        }
-        node->content = content;
+    if(nodetype == REGULAR_FILE || nodetype == SOFTLINK) {
+        kp_notify_leaf_read_content(node, descriptor);
     }
+    close(descriptor);
 
-
-    node->follow_symlinks = follow_symlinks;
-    node->active_watch = false;
-    node->last_modified = path_stat.st_mtim.tv_nsec;
-    node->watch_descriptor = -1;
 }
 
 void kp_notify_leaf_set_follow(kp_notify_leaf* node, bool follow_symlinks)
@@ -169,6 +217,7 @@ GPtrArray* kp_notify_leaf_new_recursive(const gchar* path, bool follow_symlinks)
     if(root->nodetype == DIRECTORY) {
         g_autoptr(GPtrArray) root_children = kp_notify_leaf_children(root);
 
+        // Do not iterate first element, as it is already present as "root"
         for(size_t i = 1; i<root_children->len; i++) {
             kp_notify_leaf* child = g_ptr_array_index(root_children, i);
 
@@ -186,8 +235,8 @@ GPtrArray* kp_notify_leaf_new_recursive(const gchar* path, bool follow_symlinks)
 
 void kp_notify_leaf_free(kp_notify_leaf* node)
 {
-    if(node->active_watch) {
-        // TODO: Remove all watch descriptors from the associated device
+    if(kp_notify_leaf_is_watched(node)) {
+        // TODO: Remove all watch descriptors from the associated leaf
     }
     g_free_sized(node->content, KP_FILE_LINE_MAX_LENGTH);
     g_free(node->filepath);
@@ -203,26 +252,21 @@ void kp_notify_leaf_cleanup(gpointer obj)
 void kp_notify_device_init(kp_notify_device* device)
 {
     device->device_channel = g_io_channel_unix_new(inotify_init());
-    device->watchers = g_list_alloc();
+    device->notify_watches = g_hash_table_new_full(g_int64_hash, g_int64_equal, kp_notify_leaf_destroyed_generic, nothing);
     device->gio_watch_callbacks = g_hash_table_new_full(g_int64_hash, g_int64_equal, g_free, nothing);
 }
 
 void kp_notify_device_free(kp_notify_device* device)
 {
-    GList* watcher = g_list_next(device->watchers);
-    while(watcher != NULL) {
-        inotify_rm_watch(g_io_channel_unix_get_fd(device->device_channel), *(int*)watcher->data);
-        gpointer ptr_free = watcher;
-        watcher = g_list_next(ptr_free);
-        g_list_free(ptr_free);
-    }
+    g_hash_table_destroy(device->notify_watches);
     g_hash_table_destroy(device->gio_watch_callbacks);
     g_io_channel_shutdown(device->device_channel, false, NULL);
 }
 
 bool kp_notify_device_add_watch(kp_notify_device* device, kp_notify_leaf* leaf, uint32_t mask)
 {
-    if(g_list_length(device->watchers) == KP_MAX_WATCHERS) {
+    
+    if(g_hash_table_size(device->notify_watches) == KP_MAX_WATCHERS) {
         g_warning("Cannot add watchers, watch list is full (of size %d)", KP_MAX_WATCHERS);
         return false;
     }
@@ -230,12 +274,10 @@ bool kp_notify_device_add_watch(kp_notify_device* device, kp_notify_leaf* leaf, 
     int fd_device = g_io_channel_unix_get_fd(device->device_channel);
     int wd = inotify_add_watch(fd_device, leaf->filepath, mask);
     leaf->watch_descriptor = wd;
-    device->watchers = g_list_prepend(device->watchers, &leaf->watch_descriptor);
+    g_hash_table_insert(device->notify_watches, &leaf->watch_descriptor, leaf);
 
     return true;
 }
-
-
 
 bool kp_notify_device_add_watch_recursive(kp_notify_device* device, GPtrArray* all_leafs, kp_notify_leaf* root_leaf, uint32_t bitmask)
 {
@@ -256,14 +298,16 @@ bool kp_notify_device_add_watch_recursive(kp_notify_device* device, GPtrArray* a
 
 bool kp_notify_device_rm_watch(kp_notify_device* device, kp_notify_leaf* leaf)
 {
-    if(g_list_length(device->watchers) == 0) {
+    if(g_hash_table_size(device->notify_watches) == 0) {
         g_warning("Cannot remove watchers, watch list is empty");
         return false;
     }
 
     int fd_device = g_io_channel_unix_get_fd(device->device_channel);
-    device->watchers = g_list_remove(device->watchers, &leaf->watch_descriptor);
-    inotify_rm_watch(fd_device, leaf->watch_descriptor);
+    int wd_desc = leaf->watch_descriptor;
+    g_hash_table_remove(device->notify_watches, &wd_desc);
+    inotify_rm_watch(fd_device, wd_desc);
+    leaf->watch_descriptor = -1;
 
     return true;
 }
@@ -289,16 +333,21 @@ bool kp_notify_device_rm_watch_recursive(kp_notify_device* device, GPtrArray* al
 bool kp_notify_device_add_callback(kp_notify_device* device, INotifyCallback callback, uint32_t bitmask)
 {
     if(g_hash_table_contains(device->gio_watch_callbacks, &bitmask)) {
-        g_error("Error: Cannot have multiple subscribers to a single inotify bitmask");
+        g_warning("Cannot have multiple subscribers to a single inotify bitmask");
         return false;
-    } else {
-        g_hash_table_insert(device->gio_watch_callbacks, &bitmask, callback);
-        return true;
     }
+
+    g_hash_table_insert(device->gio_watch_callbacks, &bitmask, callback);
+    return true;
 }
 
 bool kp_notify_device_rm_callback(kp_notify_device* device, uint32_t bitmask)
 {
+    if(!g_hash_table_contains(device->gio_watch_callbacks, &bitmask))
+    {
+        g_warning("No GIO callback found for bitmask: %u", bitmask);
+        return false;
+    }
     return g_hash_table_remove(device->gio_watch_callbacks, &bitmask);
 }
 
@@ -306,3 +355,4 @@ bool kp_notify_device_set_gio_handler(kp_notify_device* device, GIOFunc handler)
 {
     return g_io_add_watch(device->device_channel, G_IO_IN, handler, device);
 }
+

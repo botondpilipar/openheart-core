@@ -1,5 +1,9 @@
 {
     "C_Cpp.default.compileCommands": "/home/botondpilipar/Projects/linux-desktop/openheart-core/build/compile_commands.json",
     "C_Cpp.default.configurationProvider": "mesonbuild.mesonbuild",
-    "cmake.configureOnOpen": false
+    "cmake.configureOnOpen": false,
+    "files.associations": {
+        "kp_notify.h": "c",
+        "kp_types.h": "c"
+    }
 }

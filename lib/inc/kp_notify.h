@@ -1,7 +1,9 @@
 #pragma once
 #include <kp_types.h>
 #include <sys/inotify.h>
+#include <sys/types.h>
 #include <stdbool.h>
+#include <sys/stat.h>
 #include <glib.h>
 #include <stdint.h>
 
@@ -9,8 +11,7 @@ G_BEGIN_DECLS
 
 
 /* node_type functions */
-node_type get_node_type(const gchar* path);
-node_type get_followed_node_type(const gchar* path, gchar* last_pointed);
+node_type get_node_type(const struct stat* stat_entry);
 
 /* kp_notify_device functions */
 void kp_notify_device_init(kp_notify_device* device);
@@ -40,5 +41,9 @@ size_t kp_notify_leaf_rm_watch_recursive(kp_notify_leaf* root_node, kp_notify_de
 bool kp_notify_device_set_gio_handler(kp_notify_device* device, GIOFunc handler);
 
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(kp_notify_leaf, kp_notify_leaf_cleanup)
+
+/* Utility functions */
+bool kp_notify_leaf_read_content(kp_notify_leaf* leaf, int descriptor);
+bool kp_notify_leaf_is_watched(const kp_notify_leaf* leaf);
 
 G_END_DECLS
