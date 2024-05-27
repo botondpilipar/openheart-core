@@ -4,6 +4,8 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
+
         {
             "name": "(gdb) openheart-core",
             "type": "cppdbg",
@@ -12,9 +14,15 @@
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/${config:mesonbuild.buildFolder}",
-            "environment": [],
+            "environment": [
+                {
+                    "name": "G_MESSAGES_DEBUG",
+                    "value": "all"
+                }
+            ],
             "externalConsole": false,
             "MIMode": "gdb",
+            "miDebuggerPath": "${workspaceFolder}/scripts/sudo_gdb",
             "envFile": "${workspaceFolder}/${config:mesonbuild.buildFolder}/meson-vscode.env",
             "setupCommands": [
                 {
@@ -27,7 +35,7 @@
                     "text": "-gdb-set disassembly-flavor intel",
                     "ignoreFailures": true
                 }
-            ]
+            ],
         }
     ]
 }

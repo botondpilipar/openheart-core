@@ -4,6 +4,15 @@
     "cmake.configureOnOpen": false,
     "files.associations": {
         "kp_notify.h": "c",
-        "kp_types.h": "c"
-    }
+        "kp_types.h": "c",
+        "capability.h": "c",
+        "types.h": "c"
+    },
+    "clangd.enableCodeCompletion": true,
+    "clangd.arguments": [
+        "--compile-commands-dir=${workspaceFolder}/build",
+        "--all-scopes-completion",
+        "--background-index",
+        "--header-insertion=never"
+    ]
 }

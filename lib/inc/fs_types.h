@@ -4,13 +4,13 @@
 
 G_BEGIN_DECLS
 
-#define KP_FILE_PATH_MAX_LEN 256
-#define KP_FILE_LINE_MAX_LENGTH 128
-#define KP_MAX_WATCHERS 512
-#define KP_MASK_DIGITS 32
+#define FS_FILE_PATH_MAX_LEN 256
+#define FS_FILE_LINE_MAX_LENGTH 128
+#define FS_MAX_WATCHERS 512
+#define FS_MASK_DIGITS 32
 
 typedef gboolean (*INotifyCallback) (const char *, int, unsigned int, unsigned int);
-typedef void(*KPNotifyCallback)(int);
+typedef void(*FSNotifyCallback)(int);
 
 
 typedef enum node_type
@@ -21,14 +21,14 @@ typedef enum node_type
     OTHER,
 } node_type;
 
-typedef struct kp_notify_device
+typedef struct fs_notify_device
 {
     GIOChannel* device_channel; /* Main gio device wrapping the inotify device descriptor */
     GHashTable* notify_watches; /* All file descriptors being watched by the device, hashed by descriptor value */
     GHashTable* gio_watch_callbacks; /* All event loop callbacks hashed by the event bitmasks */
-} kp_notify_device;
+} fs_notify_device;
 
-typedef struct kp_notify_leaf
+typedef struct fs_notify_leaf
 {
     node_type nodetype;
     bool follow_symlinks;
@@ -36,6 +36,6 @@ typedef struct kp_notify_leaf
     gulong last_modified;
     gchar* content;
     gchar* filepath;
-} kp_notify_leaf;
+} fs_notify_leaf;
 
 G_END_DECLS
