@@ -23,6 +23,7 @@ subdir('process')
 subdir('qobject')
 subdir('gobject')
 subdir('test')
+subdir('experiment')
 
 executable('openheart-core',
            'main.c',
