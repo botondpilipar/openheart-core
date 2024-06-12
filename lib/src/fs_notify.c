@@ -18,14 +18,14 @@
 
 FSNotifyCallback kp_notify_leaf_destroyed_cb = on_fs_notify_leaf_destoryed_default;
 
-void fs_notify_leaf_destroyed_generic(gpointer data) {
+static void fs_notify_leaf_destroyed_generic(gpointer data) {
     int fd = *(int*)data;
     kp_notify_leaf_destroyed_cb(fd);
 }
 
 /* File System Notify Leaf Functions */
 
-void follow_leaf_link(fs_notify_leaf* node)
+static void follow_leaf_link(fs_notify_leaf* node)
 {
     if(node->nodetype != SOFTLINK) {
         return;

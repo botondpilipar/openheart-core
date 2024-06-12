@@ -3,12 +3,13 @@
 
 #include "main_process.h"
 #include <fs_notify.h>
-#include <fs_notify_handler.h>
 #include <signal_handlers.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdbool.h>
 #include <glib-unix.h>
+#include <kernel_data.h>
+
 
 GOptionContext* openheart_core_get_args(int argc, char** argv)
 {
@@ -33,7 +34,11 @@ gint openheart_core_main(int argc, char** argv)
     fs_notify_device_init(&nt_device);
 
     g_autoptr(GPtrArray) leafs = fs_notify_leaf_new_recursive("/proc/sys/fs", false);
+    kernel_data this_kernel;
+    kernel_data_init(&this_kernel);
 
     g_main_loop_run(main_loop);
+
+    kernel_data_free(&this_kernel);
     return 0;
 }

@@ -19,10 +19,6 @@ typedef struct utsname kernel_attributes;
 typedef struct sysinfo system_info;
 
 
-static gchar kernel_attr_fmt_str[] = 
-    "{\n\tmachine: %s\n\tnodename: %s\n\trelease: %s\n\t"
-    "sysname: %s\n\tversion: %s\n}\n";
-
 void init_kernel_attributes(kernel_attributes* attr, bool active);
 kernel_attributes* new_kernel_attributes(bool active);
 void cleanup_kernel_attributes(kernel_attributes* attributes);

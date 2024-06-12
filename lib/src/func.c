@@ -31,3 +31,37 @@ void nothing(gpointer /* unused */)
 {
     return;
 }
+
+gint* q_alloc_int(gint v)
+{
+	gint* r =  g_new(int, 1);
+	*r = v;
+	return r;
+}
+
+guint* q_alloc_uint(guint v)
+{
+	guint* r =  g_new(uint, 1);
+	*r = v;
+	return r;
+}
+
+gint64* q_alloc_int64(gint64 v)
+{
+	gint64* r =  g_new(gint64, 1);
+	*r = v;
+	return r;
+}
+
+gchar* q_alloc_str(const gchar* v)
+{
+	gchar* r =  g_strdup(v);
+	return r;
+}
+
+unsigned char* q_alloc_uchar(unsigned char v)
+{
+	unsigned char* r = g_new(unsigned char, 1);
+	*r = v;
+	return r;
+}

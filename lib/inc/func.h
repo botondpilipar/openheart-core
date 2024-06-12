@@ -19,3 +19,19 @@ void nothing(gpointer);
                     float: identity_float, \
                     double: identity_double \
                 )(X)
+
+gint* q_alloc_int(gint v);
+guint* q_alloc_uint(guint v);
+gint64* q_alloc_int64(gint64 v);
+gchar* q_alloc_str(const gchar* v);
+unsigned char* q_alloc_uchar(unsigned char v);
+
+#define q_alloc(X) _Generic((X), \
+                    gint: q_alloc_int, \
+                    guint: q_alloc_uint, \
+                    gint64: q_alloc_int64, \
+                    const gchar*: q_alloc_str, \
+                    gchar*: q_alloc_str, \
+                    unsigned char: q_alloc_uchar \
+                )(X)
+

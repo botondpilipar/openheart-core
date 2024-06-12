@@ -10,7 +10,7 @@ init_kernel_attributes(kernel_attributes* attr,
                        bool /*Not used*/)
 {
     int res = uname(attr);
-    if(!res) {
+    if(res == -1) {
         perror("uname query failed");
     }
 }
@@ -32,5 +32,12 @@ cleanup_kernel_attributes(kernel_attributes* attr)
 void
 print_kernel_attributes(kernel_attributes* attr, GString* buffer)
 {
-    g_string_printf(buffer, kernel_attr_fmt_str, attr->machine, attr->nodename, attr->release, attr->sysname, attr->version);
+    g_string_printf(buffer,
+                            "{\n\tmachine: %s\n\tnodename: %s\n\trelease: %s\n\t"
+                            "sysname: %s\n\tversion: %s\n}\n", 
+                            attr->machine, 
+                            attr->nodename, 
+                            attr->release, 
+                            attr->sysname, 
+                            attr->version);
 }
