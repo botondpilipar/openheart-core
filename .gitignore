@@ -1046,3 +1046,7 @@ dkms.conf
 
 # Conan CMake Presets
 CMakeUserPresets.json
+
+# Doxygen generated files
+html
+latex
